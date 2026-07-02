@@ -10,22 +10,40 @@ on:
 
 jobs:
   build:
+    name: Build (Windows)
     runs-on: windows-latest
+    strategy:
+      matrix:
+        configuration: [Release]
+        platform: [x64]
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
 
-    - name: Build Dumper Project
-      run: msbuild .\Dumper\Dumper.vcxproj /p:Configuration=Release /p:Platform=x64 /p:WarningLevel=0
+      - name: Show Visual Studio info
+        shell: pwsh
+        run: |
+          Write-Host "=== Visual Studio & MSBuild info ==="
+          & vswhere -products * -latest -format json | ConvertFrom-Json | ForEach-Object { Write-Host $_.displayName; Write-Host $_.installationPath }
+          msbuild -version
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Dumper-7_x64-Release
-        path: |
-          .\Dumper\x64\Release\Dumper*.dll
-          .\Dumper\x64\Release\Dumper*.pdb
+      - name: Build Dumper Project
+        shell: pwsh
+        run: |
+          $cfg = "${{ matrix.configuration }}"
+          $plat = "${{ matrix.platform }}"
+          Write-Host "Building Dumper/Dumper.vcxproj ($cfg|$plat)"
+          msbuild "Dumper/Dumper.vcxproj" /p:Configuration=$cfg /p:Platform=$plat /p:WarningLevel=0 /m
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dumper-${{ matrix.platform }}-${{ matrix.configuration }}
+          path: |
+            Dumper/**/${{ matrix.platform }}/${{ matrix.configuration }}/Dumper*.dll
+            Dumper/**/${{ matrix.platform }}/${{ matrix.configuration }}/Dumper*.pdb
+            Dumper/**/bin/${{ matrix.configuration }}/*
